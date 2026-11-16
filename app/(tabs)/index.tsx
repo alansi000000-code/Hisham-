@@ -102,6 +102,8 @@ export default function HomeScreen() {
     : resultTab === "wallet"
       ? visibleRows.filter((row) => row.documentType === "مستندات محفظة جيب")
       : visibleRows;
+  const qasimiCount = rows.filter((row) => row.documentType === "مستندات شركة القاسمي").length;
+  const walletCount = rows.filter((row) => row.documentType === "مستندات محفظة جيب").length;
 
   async function pickImages() {
     setNotice("اختر صور الإشعارات من الاستوديو");
@@ -144,8 +146,12 @@ export default function HomeScreen() {
       setRows([...nextRows]);
       setProgress((index + 1) / assets.length);
     }
+    const qasimiRows = nextRows.filter((row) => row.documentType === "مستندات شركة القاسمي");
+    const walletRows = nextRows.filter((row) => row.documentType === "مستندات محفظة جيب");
+    const unknownRows = nextRows.filter((row) => row.documentType === "غير محدد");
+    setResultTab(qasimiRows.length > 0 && walletRows.length === 0 ? "qasimi" : walletRows.length > 0 && qasimiRows.length === 0 ? "wallet" : "summary");
     setLastEngine(engine || (Platform.OS === "web" ? "معاينة المتصفح" : "OCR محلي"));
-    setNotice(`اكتملت معالجة ${assets.length} ${assets.length === 1 ? "صورة" : "صور"}`);
+    setNotice(`اكتملت المعالجة والفرز: ${walletRows.length} جيب · ${qasimiRows.length} قاسمي${unknownRows.length ? ` · ${unknownRows.length} غير محدد` : ""}`);
     setProcessing(false);
   }
 
@@ -304,7 +310,7 @@ export default function HomeScreen() {
                 ))}
               </View>
               <View style={styles.tabsRow}>
-                {([["summary", "الأساسي"], ["qasimi", "القاسمي"], ["wallet", "المحفظة"], ["raw", "النص الكامل"]] as const).map(([tab, label]) => (
+                {([["summary", `الكل (${rows.length})`], ["qasimi", `القاسمي (${qasimiCount})`], ["wallet", `جيب (${walletCount})`], ["raw", "النص الكامل"]] as const).map(([tab, label]) => (
                   <Pressable key={tab} onPress={() => setResultTab(tab)} style={[styles.tabButton, resultTab === tab && styles.tabButtonActive]}>
                     <Text style={[styles.tabText, resultTab === tab && styles.tabTextActive]}>{label}</Text>
                   </Pressable>
