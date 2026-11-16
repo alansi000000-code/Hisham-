@@ -111,16 +111,50 @@ function numberAfterLabel(text: string, labels: string[]) {
   ]));
 }
 
-export function classifyNotification(text: string): NotificationKind {
-  return /محفظة|المحفظه|إيداع|ايداع|رصيد|wallet/i.test(text)
-    ? "إيداع محفظة"
-    : "حوالة صرافة";
+function classificationText(text: string) {
+  return text
+    .toLocaleLowerCase()
+    .normalize("NFKC")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[إأآٱ]/g, "ا")
+    .replace(/[ى]/g, "ي")
+    .replace(/[ؤ]/g, "و")
+    .replace(/[ئ]/g, "ي")
+    .replace(/[ة]/g, "ه")
+    .replace(/[\s\u200f\u200e:_#|،؛,./\\-]+/g, "");
 }
 
 export function classifyDocument(text: string): DocumentType {
-  if (/القاسمي|القاسمى|al[- ]?qasimi|qasimi|money exchange/i.test(text)) return "مستندات شركة القاسمي";
-  if (/محفظة\s*جيب|جيب\s*محفظة|\bjaib\b|\bjawib\b|wallet/i.test(text)) return "مستندات محفظة جيب";
-  return "غير محدد";
+  const normalized = classificationText(text);
+  const walletSignals = [
+    [/جيب|jawib|jaib|wallet/, 8],
+    [/رقممرجعالعمليه|مرجعالعمليه/, 5],
+    [/تاريخالعمليه/, 4],
+    [/المودع/, 3],
+    [/المستفيد/, 2],
+  ] as const;
+  const qasimiSignals = [
+    [/القاسمي|moneyexchange|exchange/, 8],
+    [/للصرافه|للتحويل/, 6],
+    [/اشعارمدين|اشعاردائن/, 5],
+    [/رقمالاشعار|تاريخالاشعار/, 4],
+    [/مبلغالحساب|عملهالحساب/, 4],
+    [/السيد/, 2],
+  ] as const;
+  const walletScore = walletSignals.reduce((score, [pattern, weight]) => score + (pattern.test(normalized) ? weight : 0), 0);
+  const qasimiScore = qasimiSignals.reduce((score, [pattern, weight]) => score + (pattern.test(normalized) ? weight : 0), 0);
+  if (walletScore === 0 && qasimiScore === 0) return "غير محدد";
+  if (walletScore > qasimiScore) return "مستندات محفظة جيب";
+  if (qasimiScore > walletScore) return "مستندات شركة القاسمي";
+  return /جيب|jawib|jaib|wallet/i.test(text) ? "مستندات محفظة جيب" : "مستندات شركة القاسمي";
+}
+
+export function classifyNotification(text: string, documentType?: DocumentType): NotificationKind {
+  if (documentType === "مستندات محفظة جيب") return "إيداع محفظة";
+  if (documentType === "مستندات شركة القاسمي") return "حوالة صرافة";
+  return /محفظة|المحفظه|جيب|jawib|jaib|wallet|رصيد/i.test(text)
+    ? "إيداع محفظة"
+    : "حوالة صرافة";
 }
 
 function multilineLabelValue(text: string, labels: string[]) {
@@ -175,8 +209,8 @@ function wordsOnly(value: string) {
 
 export function parseNotification(rawText: string, sourceName: string, id: string): ParsedNotification {
   const text = cleanText(rawText);
-  const kind = classifyNotification(text);
   const documentType = classifyDocument(text);
+  const kind = classifyNotification(text, documentType);
   const reference = numberAfterLabel(text, ["رقم\\s*المرجع", "المرجع", "مرجع", "الإشعار", "رقم\\s*الإشعار", "reference", "ref"])
     || cleanValue(firstMatch(text, [/(?:^|\n)([0-9]{5,})\s*(?:\n|$)/]))
     || "";
