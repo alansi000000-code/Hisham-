@@ -69,6 +69,26 @@ describe("notification parser", () => {
     expect(parseNotification("Jawib wallet\nإيداع محفظة", "jawib.jpg", "7").documentType).toBe("مستندات محفظة جيب");
   });
 
+  it("classifies OCR wallet labels even when the logo name is missing", () => {
+    const row = parseNotification(
+      "المبلغ: 12500 ريال\nرقم مرجع العملية: 987654321\nالعملية: إيداع\nتاريخ العملية: 2026/10/27\nالمستفيد: هشام أحمد 771234567\nالمودع: مؤسسة النور 778765432\nالبيان: دفعة شهرية",
+      "wallet-ocr.jpg",
+      "wallet-ocr",
+    );
+    expect(row.documentType).toBe("مستندات محفظة جيب");
+    expect(row.kind).toBe("إيداع محفظة");
+  });
+
+  it("classifies Qasimi debit and credit notices from their labels", () => {
+    const row = parseNotification(
+      "إشعار مدين\nرقم الإشعار: 272909\nتاريخ الإشعار: 2026/10/27\nالسيد: محمد أحمد\nمبلغ الحساب: 16000 ريال\nالعمولة: 500",
+      "exchange-ocr.jpg",
+      "exchange-ocr",
+    );
+    expect(row.documentType).toBe("مستندات شركة القاسمي");
+    expect(row.kind).toBe("حوالة صرافة");
+  });
+
   it("keeps a recipient name that continues across OCR lines", () => {
     const row = parseNotification("شركة القاسمي\nإشعار مدين\nإلى: هشام عبدالوهاب\nيعقوب أحمد\nالحطامي\nالمبلغ: 1000 ريال", "name-lines.jpg", "8");
     expect(row.beneficiaryName).toBe("هشام عبدالوهاب يعقوب أحمد الحطامي");
